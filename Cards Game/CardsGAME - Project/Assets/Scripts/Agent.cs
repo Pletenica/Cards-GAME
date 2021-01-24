@@ -17,7 +17,7 @@ public class Agent : MonoBehaviour
 
 	// Game parameters
 	private int numEnemyCards;
-	private int [] myCards;
+	public int [] myCards;
 	private int NUM_CLASSES = 3;
 	private int DECK_SIZE   = 4;
 
@@ -218,24 +218,30 @@ public class Agent : MonoBehaviour
 
     private int ChooseAction()
     {
-    	int action; 
+    	int action = -1;
+        bool isValid = false;
 
-		// Decide if it is going to be a random action or
-		// according to Q table
-		if (Random.Range (0.0f, 1.0f) < epsilon) 	// Random action
-		{
-			// Random.Range with ints does not include the maximum
-			action = Random.Range (0, numActions);		
-		} 
-		else 	// Best action according to Q-table (column with highest value)
-		{
-			int colMax = 0;
-			for (int col = 1; col < numActions; col++)
-				if (qTable [state, col] > qTable [state, colMax])
-					colMax = col;
+        while (isValid == false)
+        {
+		    // Decide if it is going to be a random action or
+		    // according to Q table
+		    if (Random.Range (0.0f, 1.0f) < epsilon) 	// Random action
+		    {
+		    	// Random.Range with ints does not include the maximum
+		    	action = Random.Range (0, numActions);	
+            
+		    } 
+		    else 	// Best action according to Q-table (column with highest value)
+		    {
+		    	int colMax = 0;
+		    	for (int col = 1; col < numActions; col++)
+		    		if (qTable [state, col] > qTable [state, colMax])
+		    			colMax = col;
 
-			action = colMax;
-		}
+		    	action = colMax;
+		    }
+            isValid = ActionChecker(action);
+        }
 
 
 		// Reduce epsilon (to gradually reduce the random exploration)
@@ -245,7 +251,21 @@ public class Agent : MonoBehaviour
 
 		return action;
     }
-   
+
+    private bool ActionChecker(int action)
+    {
+        int []a = ActionToCards(action);
+        int[] b = (int[])myCards.Clone();
+
+        foreach (int card in a)
+        {
+            b[card]--;
+            if (b[card] < 0)
+                return false;
+        }
+
+        return true;
+    }
 
     // Translate the int that encodes the action into an array with the
     // cards that the agent is playing

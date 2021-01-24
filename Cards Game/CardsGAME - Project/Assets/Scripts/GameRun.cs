@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameRun : MonoBehaviour
 {
@@ -41,11 +42,23 @@ public class GameRun : MonoBehaviour
     public Sprite cardFrog;
     public Sprite cardBase;
 
+    [Header("UI")]
+    public Text texttargetaPlayer1;
+    public Text texttargetaPlayer2;
+    public Text textcountPlayer1;
+    public Text textcountPlayer2;
+    public Slider trainSlider;
+    [Range(1, 50)]
+    public int countRounds = 10;
+
+
+    private int countPlayer1;
+    private int countPlayer2;
+
     // Start is called before the first frame update
     void Start()
     {
-        targetesAnimator.SetBool("PantallaIn", false);
-        pantallaAnimator.SetBool("PantallaIn", true);
+
 
         ///////////////////////////////////////
         // Sprite management
@@ -78,19 +91,8 @@ public class GameRun : MonoBehaviour
         // Start the game
         ///////////////////////////////////////
         StartCoroutine("GenerateTurn");
-
-
-        ///////////////////////////////////////
-        // Image generation
-        ///////////////////////////////////////
-    	//renderTexture = gameObject.GetComponent<Camera>().targetTexture;
-
-    	//imgWidth  = renderTexture.width;
-    	//imgHeight = renderTexture.height;
-
         
     }
-
 
     // Generate a card on a given transform
     // Return the label (0-2) of the card
@@ -112,7 +114,7 @@ public class GameRun : MonoBehaviour
    	  	// Determine label of the character, return it
    	  	int label = 0;
    	  	if(chars[idx].name.StartsWith("frog")) label = 1;
-   	  	else if(chars[idx].name.StartsWith("opposum")) label = 2;
+   	  	else if(chars[idx].name.StartsWith("opossum")) label = 2;
 
     	return label;
     } 
@@ -120,9 +122,21 @@ public class GameRun : MonoBehaviour
     // Generate another turn
     IEnumerator GenerateTurn()
     {
+        /////////// INIT THE VARIABLES AND DO TRAINING /////////////
+        targetesAnimator.SetBool("PantallaIn", false);
+        pantallaAnimator.SetBool("PantallaIn", false);
+        yield return new WaitForSeconds(1.5f);
+        countPlayer1 = 0;
+        countPlayer2 = 0;
+        trainSlider.value = 0;
+        texttargetaPlayer1.text = countPlayer1.ToString();
+        texttargetaPlayer2.text = countPlayer2.ToString();
+        textcountPlayer1.text = countPlayer1.ToString();
+        textcountPlayer2.text = countPlayer2.ToString();
+        pantallaAnimator.SetBool("PantallaTrainIn", true);
         yield return new WaitForSeconds(2f);
-        for (int turn=0; turn<100000; turn++) {
-
+        for (float turn=0; turn < 100; turn++) {
+            
 	        ///////////////////////////////////////
 	        // Generate enemy cards
 	        ///////////////////////////////////////
@@ -133,7 +147,6 @@ public class GameRun : MonoBehaviour
 	    		foreach(Transform sprite in card) {
 	    			Destroy(sprite.gameObject);
 	    		}
-
 	    		enemyChars[c++] = GenerateCard(card);
 	    	}
 
@@ -146,52 +159,123 @@ public class GameRun : MonoBehaviour
 	        foreach(int card in deck)
 	        	textDeck.text += card.ToString() + "/";
 
-
-
-            ///////////////////////////////////////
-            // Tell the player to play
-            ///////////////////////////////////////
-
-            // IMPORTANT: wait until the frame is rendered so the player sees
-            //            the newly generated cards (otherwise it will see the previous ones)
             yield return new WaitForEndOfFrame();
 
             int [] action = agent.Play(deck, enemyChars);
 
-	        textDeck.text += " Action:";
-	        foreach(int a in action)
-	        	textDeck.text += a.ToString() + "/";
+	        //textDeck.text += " Action:";
+	        //foreach(int a in action)
+	        //	textDeck.text += a.ToString() + "/";
 
-            //if (action[0] == 0) card1Player.sprite = cardFox;
-            //if (action[0] == 1) card1Player.sprite = cardOpossum;
-            //if (action[0] == 2) card1Player.sprite = cardFrog;
-            //if (action[1] == 0) card2Player.sprite = cardFox;
-            //if (action[1] == 1) card2Player.sprite = cardOpossum;
-            //if (action[1] == 2) card2Player.sprite = cardFrog;
-            //if (action[2] == 0) card3Player.sprite = cardFox;
-            //if (action[2] == 1) card3Player.sprite = cardOpossum;
-            //if (action[2] == 2) card3Player.sprite = cardFrog;
-
+            if (action[0] == 0) card1Player.sprite = cardFox;
+            if (action[0] == 1) card1Player.sprite = cardFrog;
+            if (action[0] == 2) card1Player.sprite = cardOpossum;
+            if (action[1] == 0) card2Player.sprite = cardFox;
+            if (action[1] == 1) card2Player.sprite = cardFrog;
+            if (action[1] == 2) card2Player.sprite = cardOpossum;
+            if (action[2] == 0) card3Player.sprite = cardFox;
+            if (action[2] == 1) card3Player.sprite = cardFrog;
+            if (action[2] == 2) card3Player.sprite = cardOpossum;
 
             ///////////////////////////////////////
             // Compute reward
             ///////////////////////////////////////
-            float reward = ComputeReward(deck, action);
+            float reward = ComputeReward(agent.myCards, action);
 	        
 	        Debug.Log("Turn/reward: " + turn.ToString() + "->" + reward.ToString());
+            trainSlider.value = turn / 100;
+            agent.GetReward(reward);
 
-	        agent.GetReward(reward);
-
-
-            ///////////////////////////////////////
-            // Manage turns/games
-            ///////////////////////////////////////
-
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(0.01f);
         }
 
+        /////////// DO ANIMATIONS AND PLAY THE GAME /////////////
+        targetesAnimator.SetBool("PantallaIn", false);
+        pantallaAnimator.SetBool("PantallaTrainIn", false);
+        yield return new WaitForSeconds(2f);
+        pantallaAnimator.SetBool("PantallaIn", true);
+        yield return new WaitForSeconds(2f);
+        //Play the real game
+        for (int turn = 0; turn < countRounds; turn++)
+        {
+            ///////////////////////////////////////
+            // Generate enemy cards
+            ///////////////////////////////////////
+
+            // Destroy previous sprites (if any) and generate new cards
+            int c = 0;
+            foreach (Transform card in enemyCards.transform)
+            {
+                foreach (Transform sprite in card)
+                {
+                    Destroy(sprite.gameObject);
+                }
+                enemyChars[c++] = GenerateCard(card);
+            }
+
+
+            ///////////////////////////////////////
+            // Generate player deck
+            ///////////////////////////////////////
+            int[] deck = GeneratePlayerDeck();
+            textDeck.text = "Deck: ";
+            foreach (int card in deck)
+                textDeck.text += card.ToString() + "/";
+
+            yield return new WaitForEndOfFrame();
+
+            int[] action = agent.Play(deck, enemyChars);
+
+            //textDeck.text += " Action:";
+            //foreach (int a in action)
+            //    textDeck.text += a.ToString() + "/";
+
+            if (action[0] == 0) card1Player.sprite = cardFox;
+            if (action[0] == 1) card1Player.sprite = cardFrog;
+            if (action[0] == 2) card1Player.sprite = cardOpossum;
+            if (action[1] == 0) card2Player.sprite = cardFox;
+            if (action[1] == 1) card2Player.sprite = cardFrog;
+            if (action[1] == 2) card2Player.sprite = cardOpossum;
+            if (action[2] == 0) card3Player.sprite = cardFox;
+            if (action[2] == 1) card3Player.sprite = cardFrog;
+            if (action[2] == 2) card3Player.sprite = cardOpossum;
+
+            ///////////////////////////////////////
+            // Compute reward
+            ///////////////////////////////////////
+            float reward = ComputeReward(agent.myCards, action);
+
+            Debug.Log("Turn/reward: " + turn.ToString() + "->" + reward.ToString());
+
+            agent.GetReward(reward);
+
+            if (reward == RWD_ACTION_INVALID || reward == RWD_HAND_LOST) countPlayer2++;
+            if (reward == RWD_HAND_WON) countPlayer1++;
+
+            texttargetaPlayer1.text = countPlayer1.ToString();
+            texttargetaPlayer2.text = countPlayer2.ToString();
+            textcountPlayer1.text = countPlayer1.ToString();
+            textcountPlayer2.text = countPlayer2.ToString();
+
+            yield return new WaitForSeconds(0.01f);
+        }
+
+        /////////// PRESENT FINAL RESULTS /////////////
+        pantallaAnimator.SetBool("PantallaIn", false);
+        yield return new WaitForSeconds(1.5f);
+        targetesAnimator.SetBool("PantallaIn", true);
     }
 
+
+    public void ButtonPlayGame()
+    {
+        StartCoroutine("GenerateTurn");
+    }
+
+    public void ButtonExitGame()
+    {
+        Application.Quit();
+    }
 
     // Auxiliary methods
     private int [] GeneratePlayerDeck()
@@ -216,7 +300,7 @@ public class GameRun : MonoBehaviour
     	foreach(int card in action)
     	{
     		deck[card]--;
-    		if(deck[card] < 0)
+            if (deck[card] < 0)
     			return RWD_ACTION_INVALID;
     	}
 
